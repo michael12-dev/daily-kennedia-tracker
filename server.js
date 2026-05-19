@@ -16,10 +16,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 const SMTP_CONFIG = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
+  secure: true,
+  family: 4,
   auth: {
-    user: process.env.SMTP_USER || 'your-email@gmail.com',
-    pass: process.env.SMTP_PASS || 'your-app-password-here',
+    user: process.env.SMTP_USER || 'kennediaconsultingtracker@gmail.com',
+    pass: process.env.SMTP_PASS || 'zlup ufnk hwwm ytze',
   },
 };
 const SENDER_NAME = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
