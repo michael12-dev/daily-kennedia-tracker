@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require('express');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const cors = require('cors');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -13,27 +13,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-// secure=true is only for port 465 (SSL). Port 587 uses STARTTLS (secure:false + requireTLS:true)
-const SMTP_CONFIG = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: SMTP_PORT,
-  secure: SMTP_PORT === 465,        // true only for port 465
-  requireTLS: SMTP_PORT !== 465,    // force STARTTLS on port 587
-  family: 4,
-  auth: {
-    user: process.env.SMTP_USER || 'kennediaconsultingtracker@gmail.com',
-    pass: process.env.SMTP_PASS || 'zlup ufnk hwwm ytze',
-  },
-};
-const SENDER_NAME = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
-const BOSS_EMAIL  = 'michealokafor@kennediaconsulting.net';
-const BOSS_NAME   = 'Michael Okafor';
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Resend requires a verified domain for the FROM address.
+// We use their free shared domain (onboarding@resend.dev) so no domain setup needed.
+// The Gmail address is set as reply-to, so replies still go to the right inbox.
+const SENDER_EMAIL = 'onboarding@resend.dev';
+const SENDER_NAME  = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
+const GMAIL        = process.env.SMTP_USER   || 'kennediaconsultingtracker@gmail.com';
+const BOSS_EMAIL   = 'michealokafor@kennediaconsulting.net';
+const BOSS_NAME    = 'Michael Okafor';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildExcel(data) {
-  const tmpDir = os.tmpdir();
-  const dataFile = path.join(tmpDir, `report_data_${Date.now()}.json`);
+  const tmpDir   = os.tmpdir();
+  const dataFile  = path.join(tmpDir, `report_data_${Date.now()}.json`);
   const excelFile = path.join(tmpDir, `report_${Date.now()}.xlsx`);
 
   fs.writeFileSync(dataFile, JSON.stringify({ ...data, excelFile }));
@@ -56,95 +50,89 @@ app.post('/api/send-report', async (req, res) => {
     }
 
     const sessionLabel = session === 'morning' ? '🌅 Morning' : '🌙 Evening';
-    const excelBuffer = buildExcel({ staffName, staffUnit, date, tasks, session });
-    const safeName = staffName.replace(/[^a-zA-Z0-9]/g, '_');
-    const safeDate = date.replace(/[^a-zA-Z0-9]/g, '-');
-    const sessTag  = session === 'morning' ? 'Morning' : 'Evening';
-    const filename = `${safeName}_${sessTag}Report_${safeDate}.xlsx`;
-
-    const transporter = nodemailer.createTransport(SMTP_CONFIG);
-
-    const taskSummary = tasks.map((t, i) => {
-      let line = `${i+1}. [${t.priority || 'M'}] ${t.client} — ${t.proposed}\n   Time: ${t.time || 'N/A'}`;
-      if (t.actual) line += `\n   Actual: ${t.actual}`;
-      if (t.result) line += `\n   Result: ${t.result}`;
-      return line;
-    }).join('\n\n');
+    const excelBuffer  = buildExcel({ staffName, staffUnit, date, tasks, session });
+    const safeName     = staffName.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeDate     = date.replace(/[^a-zA-Z0-9]/g, '-');
+    const sessTag      = session === 'morning' ? 'Morning' : 'Evening';
+    const filename     = `${safeName}_${sessTag}Report_${safeDate}.xlsx`;
 
     // Evening columns for HTML email table
-    const eveningCols = session === 'evening'
-      ? `<th style="background:#4f46e5;color:white;padding:8px 10px;text-align:left;font-size:11px;">ACTUAL DELIVERABLE</th>
-         <th style="background:#4f46e5;color:white;padding:8px 10px;text-align:left;font-size:11px;">ACHIEVEMENT/RESULT</th>`
-      : `<th style="background:#548235;color:white;padding:8px 10px;text-align:left;font-size:11px;">ACTUAL DELIVERABLE</th>
-         <th style="background:#548235;color:white;padding:8px 10px;text-align:left;font-size:11px;">ACHIEVEMENT/RESULT</th>`;
+    const headerBg   = session === 'morning' ? '#548235' : '#4f46e5';
+    const eveningCols = `
+      <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">ACTUAL DELIVERABLE</th>
+      <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">ACHIEVEMENT/RESULT</th>`;
 
     const taskRows = tasks.map((t, i) => {
-      const bg = i % 2 === 0 ? '#ffffff' : '#f0f7e9';
+      const bg       = i % 2 === 0 ? '#ffffff' : '#f0f7e9';
       const actualBg = session === 'evening' ? '#eef2ff' : bg;
       return `<tr>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${i+1}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${i + 1}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.client}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.proposed}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};text-align:center;">${t.priority||'M'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.time||'—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.actual||'—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.result||'—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};text-align:center;">${t.priority || 'M'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.time || '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.actual || '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.result || '—'}</td>
       </tr>`;
     }).join('');
 
-    const headerBg = session === 'morning' ? '#548235' : '#4f46e5';
     const sessionBadge = session === 'morning'
       ? `<span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🌅 Morning Submission</span>`
       : `<span style="background:#eef2ff;color:#3730a3;border:1px solid #a5b4fc;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🌙 Evening Submission</span>`;
 
-    const mailOptions = {
-      from: `"${staffName} via Kennedia Tracker" <${SMTP_CONFIG.auth.user}>`,
-      replyTo: `"${staffName}" <${staffEmail}>`,
-      to: BOSS_EMAIL,
-      cc: staffEmail,
-      subject: `${sessTag} Deliverable Report — ${staffName} — ${date}`,
-      html: `
-        <div style="font-family:Calibri,Arial,sans-serif;max-width:680px;margin:0 auto;">
-          <div style="background:${headerBg};padding:20px 28px;border-radius:8px 8px 0 0;">
-            <h2 style="color:white;margin:0;font-size:20px;">Kennedia Consulting</h2>
-            <p style="color:#d9f0c9;margin:6px 0 0;font-size:13px;">Daily Deliverable Report &nbsp;•&nbsp; ${sessionLabel}</p>
-          </div>
-          <div style="background:#f9fdf5;padding:20px 28px;border:1px solid #c6e0a4;border-top:none;">
-            <div style="margin-bottom:14px;">${sessionBadge}</div>
-            <table style="width:100%;font-size:14px;margin-bottom:16px;">
-              <tr><td style="color:#548235;font-weight:bold;padding:4px 0;width:80px;">Staff:</td><td>${staffName}</td></tr>
-              <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Email:</td><td><a href="mailto:${staffEmail}" style="color:#548235;">${staffEmail}</a></td></tr>
-              <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Unit:</td><td>${staffUnit}</td></tr>
-              <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Date:</td><td>${date}</td></tr>
-            </table>
-            <hr style="border:none;border-top:1px solid #c6e0a4;margin:16px 0;">
-            <p style="font-size:13px;color:#375623;font-weight:bold;margin-bottom:10px;">TASKS SUMMARY</p>
-            <div style="overflow-x:auto;">
-              <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:600px;">
-                <thead><tr>
-                  <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">S/N</th>
-                  <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">CLIENT/FOCUS</th>
-                  <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">PROPOSED TASK</th>
-                  <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">PRI</th>
-                  <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">TIME</th>
-                  ${eveningCols}
-                </tr></thead>
-                <tbody>${taskRows}</tbody>
-              </table>
-            </div>
-            <p style="font-size:12px;color:#888;margin-top:20px;">The full Excel report is attached to this email.</p>
-          </div>
+    const htmlBody = `
+      <div style="font-family:Calibri,Arial,sans-serif;max-width:680px;margin:0 auto;">
+        <div style="background:${headerBg};padding:20px 28px;border-radius:8px 8px 0 0;">
+          <h2 style="color:white;margin:0;font-size:20px;">Kennedia Consulting</h2>
+          <p style="color:#d9f0c9;margin:6px 0 0;font-size:13px;">Daily Deliverable Report &nbsp;•&nbsp; ${sessionLabel}</p>
         </div>
-      `,
+        <div style="background:#f9fdf5;padding:20px 28px;border:1px solid #c6e0a4;border-top:none;">
+          <div style="margin-bottom:14px;">${sessionBadge}</div>
+          <table style="width:100%;font-size:14px;margin-bottom:16px;">
+            <tr><td style="color:#548235;font-weight:bold;padding:4px 0;width:80px;">Staff:</td><td>${staffName}</td></tr>
+            <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Email:</td><td><a href="mailto:${staffEmail}" style="color:#548235;">${staffEmail}</a></td></tr>
+            <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Unit:</td><td>${staffUnit}</td></tr>
+            <tr><td style="color:#548235;font-weight:bold;padding:4px 0;">Date:</td><td>${date}</td></tr>
+          </table>
+          <hr style="border:none;border-top:1px solid #c6e0a4;margin:16px 0;">
+          <p style="font-size:13px;color:#375623;font-weight:bold;margin-bottom:10px;">TASKS SUMMARY</p>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:600px;">
+              <thead><tr>
+                <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">S/N</th>
+                <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">CLIENT/FOCUS</th>
+                <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">PROPOSED TASK</th>
+                <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">PRI</th>
+                <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">TIME</th>
+                ${eveningCols}
+              </tr></thead>
+              <tbody>${taskRows}</tbody>
+            </table>
+          </div>
+          <p style="font-size:12px;color:#888;margin-top:20px;">The full Excel report is attached to this email.</p>
+        </div>
+      </div>
+    `;
+
+    const { data, error } = await resend.emails.send({
+      from:        `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      reply_to:    GMAIL,
+      to:          [BOSS_EMAIL],
+      cc:          [staffEmail],
+      subject:     `${sessTag} Deliverable Report — ${staffName} — ${date}`,
+      html:        htmlBody,
       attachments: [{
         filename,
-        content: excelBuffer,
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        content: excelBuffer.toString('base64'),
       }],
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, filename });
+    if (error) {
+      console.error('Resend error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to send report' });
+    }
+
+    res.json({ success: true, filename, id: data.id });
   } catch (err) {
     console.error('Send error:', err);
     res.status(500).json({ error: err.message || 'Failed to send report' });
@@ -155,9 +143,9 @@ app.post('/api/send-report', async (req, res) => {
 app.post('/api/download-report', async (req, res) => {
   try {
     const { staffName, staffUnit, date, tasks, session } = req.body;
-    const tmpDir = os.tmpdir();
-    const dataFile = path.join(tmpDir, `report_data_${Date.now()}.json`);
-    const excelFile = path.join(tmpDir, `report_${Date.now()}.xlsx`);
+    const tmpDir    = os.tmpdir();
+    const dataFile   = path.join(tmpDir, `report_data_${Date.now()}.json`);
+    const excelFile  = path.join(tmpDir, `report_${Date.now()}.xlsx`);
 
     fs.writeFileSync(dataFile, JSON.stringify({ staffName, staffUnit, date, tasks, session, excelFile }));
     execSync(`python3 ${path.join(__dirname, 'build_excel.py')} "${dataFile}"`, { timeout: 30000 });
