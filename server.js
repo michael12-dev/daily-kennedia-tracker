@@ -1,6 +1,5 @@
 require("dotenv").config();
 const express = require('express');
-const { Resend } = require('resend');
 const cors = require('cors');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -13,20 +12,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Resend requires a verified domain for the FROM address.
-// We use their free shared domain (onboarding@resend.dev) so no domain setup needed.
-// The Gmail address is set as reply-to, so replies still go to the right inbox.
-const SENDER_EMAIL = 'onboarding@resend.dev';
-const SENDER_NAME  = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
-const GMAIL        = process.env.SMTP_USER   || 'kennediaconsultingtracker@gmail.com';
-const BOSS_EMAIL   = 'michealokafor@kennediaconsulting.net';
-const BOSS_NAME    = 'Michael Okafor';
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const SENDER_EMAIL  = process.env.SMTP_USER   || 'kennediaconsultingtracker@gmail.com';
+const SENDER_NAME   = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
+const BOSS_EMAIL    = 'michealokafor@kennediaconsulting.net';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildExcel(data) {
-  const tmpDir   = os.tmpdir();
+  const tmpDir    = os.tmpdir();
   const dataFile  = path.join(tmpDir, `report_data_${Date.now()}.json`);
   const excelFile = path.join(tmpDir, `report_${Date.now()}.xlsx`);
 
@@ -38,6 +31,36 @@ function buildExcel(data) {
   const buffer = fs.readFileSync(excelFile);
   try { fs.unlinkSync(dataFile); fs.unlinkSync(excelFile); } catch (e) {}
   return buffer;
+}
+
+async function sendViaBrevo({ to, cc, replyTo, subject, html, attachment, filename }) {
+  const payload = {
+    sender:  { name: SENDER_NAME, email: SENDER_EMAIL },
+    to:      [{ email: to }],
+    replyTo: { email: replyTo },
+    subject,
+    htmlContent: html,
+    attachment: [{
+      name:    filename,
+      content: attachment.toString('base64'),
+    }],
+  };
+
+  if (cc) payload.cc = [{ email: cc }];
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'accept':       'application/json',
+      'content-type': 'application/json',
+      'api-key':      BREVO_API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.message || 'Brevo send failed');
+  return result;
 }
 
 // ─── Send report by email ────────────────────────────────────────────────────
@@ -56,8 +79,7 @@ app.post('/api/send-report', async (req, res) => {
     const sessTag      = session === 'morning' ? 'Morning' : 'Evening';
     const filename     = `${safeName}_${sessTag}Report_${safeDate}.xlsx`;
 
-    // Evening columns for HTML email table
-    const headerBg   = session === 'morning' ? '#548235' : '#4f46e5';
+    const headerBg = session === 'morning' ? '#548235' : '#4f46e5';
     const eveningCols = `
       <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">ACTUAL DELIVERABLE</th>
       <th style="background:${headerBg};color:white;padding:8px 10px;text-align:left;font-size:11px;">ACHIEVEMENT/RESULT</th>`;
@@ -66,13 +88,13 @@ app.post('/api/send-report', async (req, res) => {
       const bg       = i % 2 === 0 ? '#ffffff' : '#f0f7e9';
       const actualBg = session === 'evening' ? '#eef2ff' : bg;
       return `<tr>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${i + 1}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${i+1}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.client}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.proposed}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};text-align:center;">${t.priority || 'M'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.time || '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.actual || '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.result || '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};text-align:center;">${t.priority||'M'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${bg};">${t.time||'—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.actual||'—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #c6e0a4;background:${actualBg};">${t.result||'—'}</td>
       </tr>`;
     }).join('');
 
@@ -80,7 +102,7 @@ app.post('/api/send-report', async (req, res) => {
       ? `<span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🌅 Morning Submission</span>`
       : `<span style="background:#eef2ff;color:#3730a3;border:1px solid #a5b4fc;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;">🌙 Evening Submission</span>`;
 
-    const htmlBody = `
+    const html = `
       <div style="font-family:Calibri,Arial,sans-serif;max-width:680px;margin:0 auto;">
         <div style="background:${headerBg};padding:20px 28px;border-radius:8px 8px 0 0;">
           <h2 style="color:white;margin:0;font-size:20px;">Kennedia Consulting</h2>
@@ -114,25 +136,17 @@ app.post('/api/send-report', async (req, res) => {
       </div>
     `;
 
-    const { data, error } = await resend.emails.send({
-      from:        `${SENDER_NAME} <${SENDER_EMAIL}>`,
-      reply_to:    GMAIL,
-      to:          [BOSS_EMAIL],
-      cc:          [staffEmail],
-      subject:     `${sessTag} Deliverable Report — ${staffName} — ${date}`,
-      html:        htmlBody,
-      attachments: [{
-        filename,
-        content: excelBuffer.toString('base64'),
-      }],
+    await sendViaBrevo({
+      to:         BOSS_EMAIL,
+      cc:         staffEmail,
+      replyTo:    staffEmail,
+      subject:    `${sessTag} Deliverable Report — ${staffName} — ${date}`,
+      html,
+      attachment: excelBuffer,
+      filename,
     });
 
-    if (error) {
-      console.error('Resend error:', error);
-      return res.status(500).json({ error: error.message || 'Failed to send report' });
-    }
-
-    res.json({ success: true, filename, id: data.id });
+    res.json({ success: true, filename });
   } catch (err) {
     console.error('Send error:', err);
     res.status(500).json({ error: err.message || 'Failed to send report' });
@@ -144,8 +158,8 @@ app.post('/api/download-report', async (req, res) => {
   try {
     const { staffName, staffUnit, date, tasks, session } = req.body;
     const tmpDir    = os.tmpdir();
-    const dataFile   = path.join(tmpDir, `report_data_${Date.now()}.json`);
-    const excelFile  = path.join(tmpDir, `report_${Date.now()}.xlsx`);
+    const dataFile  = path.join(tmpDir, `report_data_${Date.now()}.json`);
+    const excelFile = path.join(tmpDir, `report_${Date.now()}.xlsx`);
 
     fs.writeFileSync(dataFile, JSON.stringify({ staffName, staffUnit, date, tasks, session, excelFile }));
     execSync(`python3 ${path.join(__dirname, 'build_excel.py')} "${dataFile}"`, { timeout: 30000 });
