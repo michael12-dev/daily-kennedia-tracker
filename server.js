@@ -15,7 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SENDER_EMAIL  = process.env.SMTP_USER   || 'kennediaconsultingtracker@gmail.com';
 const SENDER_NAME   = process.env.SENDER_NAME || 'Kennedia Consulting Tracker';
-const BOSS_EMAIL    = 'michealokafor@kennediaconsulting.net';
+const BOSS_EMAIL    = 'justice.okafor@kennediaconsulting.net';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildExcel(data) {
