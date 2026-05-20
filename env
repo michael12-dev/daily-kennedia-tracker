@@ -1,0 +1,14 @@
+# ─────────────────────────────────────────────────────────────────
+# KENNEDIA CONSULTING — Daily Tracker Backend Config
+# ─────────────────────────────────────────────────────────────────
+
+# ── Resend (replaces SMTP) ──────────────────────────────────────
+# Get your free API key at https://resend.com → API Keys
+RESEND_API_KEY=re_your_api_key_here
+
+# ── Gmail (kept so the app knows which address to use as reply-to) ──
+SMTP_USER=kennediaconsultingtracker@gmail.com
+
+# ── App Settings ───────────────────────────────────────────────
+SENDER_NAME=Kennedia Consulting Tracker
+PORT=3000
