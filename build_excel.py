@@ -85,7 +85,7 @@ ws.row_dimensions[1].height = 65
 ws.row_dimensions[2].height = 30
 ws.row_dimensions[3].height = 30
 ws.row_dimensions[4].height = 42
-ws.row_dimensions[5].height = 180
+ws.row_dimensions[5].height = 120
 
 # =========================
 # TOP YELLOW BOX (ONLY B1)
@@ -115,9 +115,8 @@ try:
     img = XLImage(img_stream)
 
     img.width = 240
-    img.height = 55
-
-    img.anchor = "D1"
+    img.height = 100
+    img.anchor = "C1"
 
     ws.add_image(img)
 
@@ -145,7 +144,7 @@ ws["F1"].fill = fill(GREEN_LIGHT)
 
 # Rich text isn't supported directly by openpyxl,
 # so make entire cell mostly bold-looking
-ws["F1"].font = font(size=11, bold=False)
+ws["F1"].font = font(size=11, bold=True)
 
 ws["F1"].alignment = Alignment(
     horizontal="left",
@@ -244,7 +243,7 @@ for idx, task in enumerate(tasks, start=1):
 
     row = start_row + idx - 1
 
-    ws.row_dimensions[row].height = 180
+    ws.row_dimensions[row].height = 120
 
     values = [
         idx,
