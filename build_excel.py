@@ -1,8 +1,11 @@
+# =========================================================
+# EXACT KENNEDIA DAILY TRACKER STYLE
+# =========================================================
+
 import sys
 import json
 import base64
 import io
-import math
 
 from openpyxl import Workbook
 from openpyxl.styles import (
@@ -10,406 +13,356 @@ from openpyxl.styles import (
     PatternFill,
     Alignment,
     Border,
-    Side,
-    GradientFill
+    Side
 )
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.formatting.rule import FormulaRule
 
-# =========================
-# LOAD DATA
-# =========================
+# =========================================================
+# LOAD JSON DATA
+# =========================================================
 
 data = json.loads(open(sys.argv[1]).read())
 
 staff_name = data['staffName']
 staff_unit = data['staffUnit']
-date_str   = data['date']
 tasks      = data['tasks']
 out_path   = data['excelFile']
 
-# =========================
+# =========================================================
 # COLORS
-# =========================
+# =========================================================
 
-C_DARK_GREEN  = '375623'
-C_MED_GREEN   = '548235'
-C_ACCENT      = '70AD47'
-C_LIGHT_GREEN = 'E2EFDA'
-C_ALT_ROW     = 'F7FBF4'
-C_BORDER      = 'D9EAD3'
-C_NAME_BG     = 'C6E0B4'
-C_WHITE       = 'FFFFFF'
-C_BLACK       = '000000'
+GREEN_DARK   = "548235"
+GREEN_LIGHT  = "D9EAD3"
+YELLOW       = "FFFF00"
+WHITE        = "FFFFFF"
+BLACK        = "000000"
+HEADER_GREY  = "E7E6E6"
 
-# =========================
+# =========================================================
 # HELPERS
-# =========================
+# =========================================================
 
-def solid(hex_color):
+def fill(color):
     return PatternFill(
         fill_type='solid',
-        fgColor=hex_color
-    )
-
-def gradient():
-    return GradientFill(
-        stop=('70AD47', '548235')
+        fgColor=color
     )
 
 def font(
-    bold=False,
     size=11,
-    color=C_BLACK,
-    name='Segoe UI'
+    bold=False,
+    color=BLACK,
+    name='Calibri'
 ):
     return Font(
-        bold=bold,
+        name=name,
         size=size,
-        color=color,
-        name=name
+        bold=bold,
+        color=color
     )
 
-def border_all(color=C_BORDER):
-    s = Side(style='thin', color=color)
+thin = Side(style='thin', color='000000')
 
+def border():
     return Border(
-        left=s,
-        right=s,
-        top=s,
-        bottom=s
+        left=thin,
+        right=thin,
+        top=thin,
+        bottom=thin
     )
 
-def border_medium(color=C_MED_GREEN):
-    s = Side(style='medium', color=color)
-
-    return Border(
-        left=s,
-        right=s,
-        top=s,
-        bottom=s
-    )
-
-def align(h='left', v='center', wrap=False):
+def align(
+    h='left',
+    v='center',
+    wrap=True
+):
     return Alignment(
         horizontal=h,
         vertical=v,
         wrap_text=wrap
     )
 
-# =========================
+# =========================================================
 # WORKBOOK
-# =========================
+# =========================================================
 
 wb = Workbook()
 ws = wb.active
-ws.title = 'Daily Report'
+ws.title = "Daily Tracker"
 
-# =========================
+# =========================================================
 # COLUMN WIDTHS
-# =========================
+# =========================================================
 
-col_widths = {
-    'A': 8,
-    'B': 26,
-    'C': 42,
-    'D': 12,
-    'E': 18,
-    'F': 42,
-    'G': 38
+widths = {
+    'A': 11,
+    'B': 33,
+    'C': 48,
+    'D': 10,
+    'E': 19,
+    'F': 48,
+    'G': 45
 }
 
-for col, width in col_widths.items():
+for col, width in widths.items():
     ws.column_dimensions[col].width = width
 
-# =========================
+# =========================================================
 # ROW HEIGHTS
-# =========================
+# =========================================================
 
-ws.row_dimensions[1].height = 55
-ws.row_dimensions[2].height = 28
-ws.row_dimensions[3].height = 28
-ws.row_dimensions[4].height = 24
-ws.row_dimensions[5].height = 36
+ws.row_dimensions[1].height = 65
+ws.row_dimensions[2].height = 32
+ws.row_dimensions[3].height = 30
+ws.row_dimensions[4].height = 48
+ws.row_dimensions[5].height = 180
 
-# =========================
-# FREEZE PANES
-# =========================
+# =========================================================
+# TOP LEFT YELLOW BOX
+# =========================================================
 
-ws.freeze_panes = 'A6'
+ws.merge_cells('B1:C1')
 
-# =========================
-# NAME ROW
-# =========================
+ws['B1'] = (
+    "Team Stand Up Meeting:\n"
+    "Morning - 9:00am\n"
+    "Progress Check-in - 4:00pm"
+)
 
-ws['A2'] = 'Name'
-ws['A2'].font = font(
-    bold=True,
+ws['B1'].fill = fill(YELLOW)
+
+ws['B1'].font = font(
     size=12,
-    color=C_DARK_GREEN
+    bold=True
 )
-ws['A2'].fill = solid(C_NAME_BG)
-ws['A2'].alignment = align('right', 'center')
-ws['A2'].border = border_all()
 
-ws['B2'] = staff_name
-ws['B2'].font = font(
+ws['B1'].alignment = align(
+    h='center',
+    v='center'
+)
+
+ws['B1'].border = border()
+
+# =========================================================
+# LOGO AREA
+# =========================================================
+
+ws.merge_cells('D1:E1')
+
+# =========================================================
+# TOP RIGHT INSTRUCTION BOX
+# =========================================================
+
+ws.merge_cells('F1:G3')
+
+instruction_text = (
+    "How to Complete the Tracker:\n\n"
+    "Morning 8:00am: Fill your Proposed Tasks + "
+    "Expected Completion Time\n\n"
+    "Evening (At The End Of The Day) 4:00pm:\n"
+    "Fill in your completed task and share with "
+    "your line manager/HOD and upload necessary "
+    "proof to a shared drive"
+)
+
+ws['F1'] = instruction_text
+
+ws['F1'].fill = fill(GREEN_LIGHT)
+
+ws['F1'].font = font(
+    size=10,
+    bold=False
+)
+
+ws['F1'].alignment = align(
+    h='left',
+    v='top'
+)
+
+ws['F1'].border = border()
+
+# Make title bold manually inside instruction text
+ws['F1'].font = Font(
+    name='Calibri',
+    size=10,
+    bold=False
+)
+
+# =========================================================
+# NAME ROW
+# =========================================================
+
+ws['A2'] = "Name"
+
+ws['A2'].fill = fill(GREEN_DARK)
+
+ws['A2'].font = font(
+    size=14,
     bold=True,
-    size=11,
-    color=C_DARK_GREEN
+    color=WHITE
 )
-ws['B2'].fill = solid(C_LIGHT_GREEN)
-ws['B2'].alignment = align('left', 'center')
-ws['B2'].border = border_all()
 
-# =========================
+ws['A2'].alignment = align(
+    h='center'
+)
+
+ws['A2'].border = border()
+
+ws['B2'] = staff_name.upper()
+
+ws['B2'].fill = fill(GREEN_DARK)
+
+ws['B2'].font = font(
+    size=13,
+    bold=True,
+    color=WHITE
+)
+
+ws['B2'].alignment = align(
+    h='right'
+)
+
+ws['B2'].border = border()
+
+# =========================================================
 # TITLE AREA
-# =========================
+# =========================================================
 
-ws.merge_cells('C2:G3')
+ws.merge_cells('C2:E3')
 
-ws['C2'] = 'Daily Deliverables Tracker'
+ws['C2'] = "Daily Deliverables Tracker"
+
+ws['C2'].fill = fill(GREEN_DARK)
 
 ws['C2'].font = font(
-    bold=True,
     size=20,
-    color=C_WHITE
+    bold=True,
+    color=WHITE
 )
-
-ws['C2'].fill = gradient()
 
 ws['C2'].alignment = align(
-    'center',
-    'center'
+    h='center',
+    v='center'
 )
 
-ws['C2'].border = border_medium()
+ws['C2'].border = border()
 
-# =========================
+# =========================================================
 # UNIT ROW
-# =========================
+# =========================================================
 
-ws['A3'] = 'Unit'
+ws['A3'] = "Unit"
+
+ws['A3'].fill = fill(GREEN_DARK)
 
 ws['A3'].font = font(
+    size=14,
     bold=True,
-    size=12,
-    color=C_DARK_GREEN
+    color=WHITE
 )
 
-ws['A3'].fill = solid(C_NAME_BG)
-ws['A3'].alignment = align('right', 'center')
-ws['A3'].border = border_all()
+ws['A3'].alignment = align(
+    h='center'
+)
+
+ws['A3'].border = border()
 
 ws['B3'] = staff_unit
 
+ws['B3'].fill = fill(GREEN_DARK)
+
 ws['B3'].font = font(
+    size=13,
     bold=True,
-    size=11,
-    color=C_DARK_GREEN
+    color=WHITE
 )
 
-ws['B3'].fill = solid(C_LIGHT_GREEN)
-ws['B3'].alignment = align('left', 'center')
-ws['B3'].border = border_all()
-
-# =========================
-# DATE ROW
-# =========================
-
-ws['A4'] = 'Date'
-
-ws['A4'].font = font(
-    bold=True,
-    size=11,
-    color=C_DARK_GREEN
+ws['B3'].alignment = align(
+    h='right'
 )
 
-ws['A4'].fill = solid(C_NAME_BG)
-ws['A4'].alignment = align('right', 'center')
-ws['A4'].border = border_all()
+ws['B3'].border = border()
 
-ws['B4'] = date_str
-
-ws['B4'].font = font(
-    size=11,
-    color=C_DARK_GREEN
-)
-
-ws['B4'].fill = solid(C_LIGHT_GREEN)
-ws['B4'].alignment = align('left', 'center')
-ws['B4'].border = border_all()
-
-for col in ['C', 'D', 'E', 'F', 'G']:
-    ws[f'{col}4'].fill = solid(C_MED_GREEN)
-    ws[f'{col}4'].border = border_medium()
-
-# =========================
-# HEADERS
-# =========================
+# =========================================================
+# TABLE HEADERS
+# =========================================================
 
 headers = [
     'S/N',
     'Clients/Focus Area',
     'Proposed Task/Deliverable for the Day',
-    'Priority',
-    'Expected Time',
+    'Priority\n(H/M/L)',
+    'Expected Time\nof Completion',
     'Actual Deliverables for Today',
     'Achievement/Result for the Day'
 ]
 
 for i, header in enumerate(headers):
 
-    cell = ws.cell(row=5, column=i + 1)
+    cell = ws.cell(row=4, column=i + 1)
 
     cell.value = header
 
-    cell.font = font(
-        bold=True,
-        size=12,
-        color=C_WHITE
-    )
+    cell.fill = fill(HEADER_GREY)
 
-    cell.fill = solid(C_MED_GREEN)
+    cell.font = font(
+        size=11,
+        bold=True
+    )
 
     cell.alignment = align(
-        'center',
-        'center',
-        wrap=True
+        h='center' if i in [0,3,4] else 'left',
+        v='center'
     )
 
-    cell.border = border_medium()
+    cell.border = border()
 
-# =========================
+# =========================================================
 # TASK ROWS
-# =========================
+# =========================================================
+
+start_row = 5
 
 for idx, task in enumerate(tasks):
 
-    row = idx + 6
+    row = start_row + idx
 
-    proposed = str(task.get('proposed', ''))
-    actual   = str(task.get('actual', ''))
+    ws.row_dimensions[row].height = 210
 
-    longest = max(
-        len(proposed),
-        len(actual)
-    )
-
-    lines = math.ceil(longest / 35)
-
-    row_height = max(
-        35,
-        lines * 18
-    )
-
-    ws.row_dimensions[row].height = row_height
-
-    is_alt = idx % 2 == 1
-
-    row_fill = solid(
-        C_ALT_ROW if is_alt else 'FFFFFF'
-    )
-
-    vals = [
+    values = [
         idx + 1,
         task.get('client', ''),
-        proposed,
-        task.get('priority', 'M'),
+        task.get('proposed', ''),
+        task.get('priority', ''),
         task.get('time', ''),
-        actual,
-        task.get('result', ''),
+        task.get('actual', ''),
+        task.get('result', '')
     ]
 
-    for ci, val in enumerate(vals):
+    for col_index, value in enumerate(values):
 
         cell = ws.cell(
             row=row,
-            column=ci + 1
+            column=col_index + 1
         )
 
-        cell.value = val
+        cell.value = value
 
         cell.font = font(
-            size=11,
-            color=C_DARK_GREEN
+            size=10
         )
-
-        cell.fill = row_fill
 
         cell.alignment = align(
-            'center' if ci in [0, 3] else 'left',
-            'center',
-            wrap=True
+            h='center' if col_index in [0,3,4] else 'left',
+            v='top'
         )
 
-        cell.border = border_all()
+        cell.border = border()
 
-# =========================
-# CONDITIONAL FORMATTING
-# =========================
-
-high_fill = solid('F4CCCC')
-medium_fill = solid('FCE5CD')
-low_fill = solid('D9EAD3')
-
-ws.conditional_formatting.add(
-    f'D6:D{len(tasks)+5}',
-    FormulaRule(
-        formula=['D6="H"'],
-        fill=high_fill
-    )
-)
-
-ws.conditional_formatting.add(
-    f'D6:D{len(tasks)+5}',
-    FormulaRule(
-        formula=['D6="M"'],
-        fill=medium_fill
-    )
-)
-
-ws.conditional_formatting.add(
-    f'D6:D{len(tasks)+5}',
-    FormulaRule(
-        formula=['D6="L"'],
-        fill=low_fill
-    )
-)
-
-# =========================
-# AUTO FILTER
-# =========================
-
-ws.auto_filter.ref = f'A5:G{len(tasks)+5}'
-
-# =========================
-# FOOTER SECTION
-# =========================
-
-footer_row = len(tasks) + 8
-
-ws.merge_cells(f'A{footer_row}:C{footer_row}')
-ws.merge_cells(f'E{footer_row}:G{footer_row}')
-
-ws[f'A{footer_row}'] = 'Prepared By: ____________________'
-ws[f'E{footer_row}'] = 'Reviewed By: ____________________'
-
-ws[f'A{footer_row}'].font = font(
-    bold=True,
-    size=11,
-    color=C_DARK_GREEN
-)
-
-ws[f'E{footer_row}'].font = font(
-    bold=True,
-    size=11,
-    color=C_DARK_GREEN
-)
-
-# =========================
-# LOGO
-# =========================
+# =========================================================
+# EMBED LOGO
+# =========================================================
 
 LOGO_B64 = "YOUR_BASE64_LOGO_HERE"
 
@@ -421,20 +374,20 @@ try:
 
     img = XLImage(img_io)
 
-    img.width = 145
-    img.height = 42
+    img.width = 220
+    img.height = 52
 
     img.anchor = 'D1'
 
     ws.add_image(img)
 
 except Exception as e:
-    print(f'Logo warning: {e}')
+    print("Logo Error:", e)
 
-# =========================
-# SAVE
-# =========================
+# =========================================================
+# SAVE FILE
+# =========================================================
 
 wb.save(out_path)
 
-print(f'Saved professionally styled report: {out_path}')
+print(f"Saved: {out_path}")
