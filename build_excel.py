@@ -3,6 +3,9 @@ from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
+from openpyxl.utils.units import pixels_to_EMU, cm_to_EMU
 
 # =========================
 # LOAD INPUT DATA
@@ -153,10 +156,6 @@ for idx, task in enumerate(tasks, start=1):
         cell.border = get_border()
         cell.alignment = Alignment(horizontal="center" if col_idx in [1, 4, 5] else "left", 
                                    vertical="top", wrap_text=True)
-
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
-from openpyxl.drawing.xdr import XDRPositiveSize2D
-from openpyxl.utils.units import pixels_to_EMU, cm_to_EMU
 
 # =========================
 # LOGO PLACEMENT (CENTERED)
