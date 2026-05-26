@@ -1,5 +1,6 @@
 import sys, json, base64, io
 from datetime import datetime
+import pytz
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.drawing.image import Image as XLImage
@@ -116,12 +117,15 @@ for r in range(2, 4):
         ws.cell(row=r, column=c).fill = fill(GREEN_DARK)
 
 # Date and Time Boxes (G2, G3)
-current_dt = datetime.now()
-ws["G2"], ws["G3"] = f"Date: {current_dt.strftime('%d/%m/%Y')}", f"Time: {current_dt.strftime('%I:%M %p')}"
+# Use Lagos timezone explicitly
+lagos_tz = pytz.timezone("Africa/Lagos")
+current_dt = datetime.now(lagos_tz)
+
+ws["G2"] = f"Date: {current_dt.strftime('%d/%m/%Y')}"
+ws["G3"] = f"Time: {current_dt.strftime('%I:%M %p')}"
 for addr in ["G2", "G3"]:
     ws[addr].fill, ws[addr].font, ws[addr].border = fill(GREEN_DARK), font(size=11, bold=True, color=WHITE), get_border()
     ws[addr].alignment = Alignment(horizontal="left", vertical="center")
-
 # =========================
 # TABLE HEADERS (Row 4)
 # =========================
