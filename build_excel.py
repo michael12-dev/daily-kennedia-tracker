@@ -157,23 +157,5 @@ for idx, task in enumerate(tasks, start=1):
         cell.alignment = Alignment(horizontal="center" if col_idx in [1, 4, 5] else "left", 
                                    vertical="top", wrap_text=True)
 
-# Load directly from a local file
-img = XLImage("logo.png")  # put your image in the same folder
-
-# Resize as needed
-img.width = 240
-img.height = 70
-
-# Add to worksheet and center it in C1
-ws.add_image(img, "C1")
-
-# Optional: center offsets
-from openpyxl.utils.units import pixels_to_EMU
-col_width_px = 45 * 7
-row_height_px = 90
-img.anchor._from.colOff = pixels_to_EMU((col_width_px - img.width) // 2)
-img.anchor._from.rowOff = pixels_to_EMU((row_height_px - img.height) // 2)
-
-
 
 wb.save(out_path)
