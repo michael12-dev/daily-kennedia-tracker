@@ -278,8 +278,8 @@ input:disabled, textarea:disabled {
         <div class="boss-info-box">
           <div class="boss-icon">👔</div>
           <div class="boss-detail">
-            <div class="boss-name">Report will be sent to: Michael Okafor</div>
-            <div class="boss-email">michealokafor@kennediaconsulting.net</div>
+            <div class="boss-name">Report will be sent to: Justice Okafor</div>
+            <div class="boss-email">justice.okafor@kennediaconsulting.net</div>
           </div>
         </div>
         <label>Report Preview</label>
@@ -325,7 +325,7 @@ input:disabled, textarea:disabled {
 <script>
 let tc = 0;
 let currentSession = 'morning'; // 'morning' or 'evening'
-const BOSS_EMAIL = 'michealokafor@kennediaconsulting.net';
+const BOSS_EMAIL = 'justice.okafor@kennediaconsulting.net';
 
 const d = new Date();
 document.getElementById('hdr-date').textContent = d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
@@ -511,7 +511,7 @@ async function sendReport(){
     document.getElementById('overlay').classList.remove('show');
     if(data.success){
       const sessionLabel = currentSession === 'morning' ? '🌅 Morning' : '🌙 Evening';
-      document.getElementById('done-msg').textContent=`Your ${sessionLabel} report was sent to Michael Okafor (${BOSS_EMAIL}) with the Excel file attached.`;
+      document.getElementById('done-msg').textContent=`Your ${sessionLabel} report was sent to Mr. Justice Okafor (${BOSS_EMAIL}) with the Excel file attached.`;
       gp(4);
     } else {
       toast('Send failed: ' + (data.error||'Unknown error'), 'error');
